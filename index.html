@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Inflacja vs Poziom Cen - Symulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background-color: #ffffff;
+            color: #1d3e53;
+            font-family: 'Inter', sans-serif;
+            touch-action: manipulation;
+            overflow-x: hidden;
+        }
+        .mint-text { color: #5cc180; }
+        .navy-bg { background-color: #1d3e53; }
+        .navy-text { color: #1d3e53; }
+        .card { 
+            background-color: #f8fafc; 
+            border: 1px solid #e2e8f0; 
+        }
+        input[type=range] {
+            accent-color: #5cc180;
+            height: 1.2rem;
+        }
+        /* Responsywność dla smartfonów */
+        @media (max-height: 700px) {
+            h1 { font-size: 1.25rem !important; }
+            .stats-text { font-size: 1.5rem !important; }
+            .chart-container { height: 160px !important; }
+            .btn-padding { padding-top: 0.75rem !important; padding-bottom: 0.75rem !important; }
+        }
+    </style>
+</head>
+<body class="p-2 md:p-6 bg-white">
+    <div class="max-w-md mx-auto flex flex-col min-h-[95vh]">
+        <header class="text-center mb-3">
+            <h1 class="text-xl font-bold navy-text">Metafora Samochodu</h1>
+            <p class="text-[11px] text-gray-500">Prędkość (inflacja) vs Przebieg (ceny)</p>
+        </header>
+
+        <!-- Statystyki -->
+        <div class="grid grid-cols-2 gap-2 mb-3">
+            <div class="card rounded-lg p-2 text-center">
+                <p class="text-[9px] text-gray-500 uppercase font-bold">Inflacja</p>
+                <div class="text-xl font-mono font-bold mint-text stats-text" id="speedDisplay">2.5%</div>
+                <p class="text-[8px] text-gray-400 uppercase" id="typeLabel">PEŁZAJĄCA</p>
+            </div>
+            <div class="card rounded-lg p-2 text-center">
+                <p class="text-[9px] text-gray-500 uppercase font-bold">Poziom Cen</p>
+                <div class="text-xl font-mono font-bold navy-text stats-text" id="odometerDisplay">100.00</div>
+                <p class="text-[8px] text-gray-400 uppercase">PRZEBIEG (PLN)</p>
+            </div>
+        </div>
+
+        <!-- Przyciski Sterowania -->
+        <div class="flex gap-2 mb-3">
+            <button id="startBtn" class="btn-padding flex-1 bg-emerald-500 text-white text-sm font-bold py-3 rounded-lg shadow-md flex items-center justify-center gap-2 transition-all">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> START
+            </button>
+            <button id="stopBtn" class="btn-padding flex-1 bg-gray-200 text-gray-600 text-sm font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-all">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h12v12H6z"/></svg> STOP
+            </button>
+        </div>
+
+        <!-- Panel Suwaka -->
+        <div class="card rounded-lg p-3 mb-2">
+            <div class="flex justify-between items-center mb-1">
+                <label class="text-[11px] font-bold navy-text uppercase">Gaz (Inflacja):</label>
+                <span class="mint-text font-bold text-sm" id="sliderVal">2.5%</span>
+            </div>
+            <input type="range" id="inflationSlider" min="0" max="25" value="2.5" step="0.1" class="w-full">
+            <div class="flex justify-between text-[8px] text-gray-400 mt-1 uppercase font-medium">
+                <span>0%</span>
+                <span class="text-emerald-600">Cel: 2.5%</span>
+                <span>Galopująca: 20%+</span>
+            </div>
+        </div>
+        
+        <!-- Zastrzeżenie o deflacji -->
+        <p class="text-[8px] text-gray-400 text-center mb-3 italic">
+            * Symulacja nie uwzględnia spadku cen (deflacji).
+        </p>
+
+        <!-- Wykres -->
+        <div class="card rounded-lg p-2 mb-3 flex-grow chart-container h-[200px]">
+            <canvas id="priceChart"></canvas>
+        </div>
+
+        <!-- Komunikat Edukacyjny -->
+        <div id="insightBox" class="p-3 rounded-lg border-l-4 border-blue-400 bg-blue-50 transition-colors duration-300 shadow-sm">
+            <strong id="insightTitle" class="block text-[11px] navy-text mb-1 uppercase tracking-wider">Silnik wyłączony</strong>
+            <p id="insightText" class="text-[10px] text-gray-600 leading-tight italic">Naciśnij START, aby zobaczyć jak inflacja zakrzywia linię cen w czasie.</p>
+        </div>
+
+        <footer class="mt-auto pt-2 text-center">
+            <p class="text-[9px] text-gray-300 uppercase tracking-widest font-bold">RodziceInwestują.pl</p>
+        </footer>
+    </div>
+
+    <script>
+        const slider = document.getElementById('inflationSlider');
+        const speedDisplay = document.getElementById('speedDisplay');
+        const odometerDisplay = document.getElementById('odometerDisplay');
+        const sliderValText = document.getElementById('sliderVal');
+        const insightTitle = document.getElementById('insightTitle');
+        const insightText = document.getElementById('insightText');
+        const insightBox = document.getElementById('insightBox');
+        const typeLabel = document.getElementById('typeLabel');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const ctx = document.getElementById('priceChart').getContext('2d');
+
+        let isRunning = false;
+        let currentPriceLevel = 100.00;
+        const maxDataPoints = 300; 
+        let priceData = Array(maxDataPoints).fill(100);
+        let labels = Array(maxDataPoints).fill("");
+
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Cena',
+                    data: priceData,
+                    borderColor: '#1d3e53',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    fill: true,
+                    backgroundColor: 'rgba(92, 193, 128, 0.05)',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { display: false },
+                    y: { 
+                        grid: { color: '#f1f5f9' },
+                        ticks: { color: '#94a3b8', font: { size: 8 } }
+                    }
+                },
+                animation: { duration: 0 }
+            }
+        });
+
+        function updateSimulation() {
+            if (!isRunning) return;
+            const inflationRate = parseFloat(slider.value) / 100;
+            const stepFactor = 0.015; 
+            const increment = (currentPriceLevel * inflationRate) * stepFactor;
+            currentPriceLevel += increment;
+            priceData.push(currentPriceLevel);
+            priceData.shift();
+            chart.update();
+            odometerDisplay.innerText = currentPriceLevel.toFixed(2);
+            updateStatusText();
+        }
+
+        function updateStatusText() {
+            const val = parseFloat(slider.value);
+            speedDisplay.innerText = val.toFixed(1) + '%';
+            if (!isRunning) {
+                insightBox.className = "p-3 rounded-lg border-l-4 border-gray-400 bg-gray-50";
+                insightTitle.innerText = "Silnik wyłączony";
+                insightText.innerText = "Ceny stoją w miejscu. Uruchom silnik, aby rozpocząć jazdę przez świat inflacji.";
+                typeLabel.innerText = "BRAK RUCHU";
+                return;
+            }
+            if (val === 0) {
+                insightBox.className = "p-3 rounded-lg border-l-4 border-blue-400 bg-blue-50";
+                insightTitle.innerText = "Bieg jałowy (0%)";
+                insightText.innerText = "Ceny są stabilne. W teorii to idealna sytuacja, ale w gospodarce zdarza się niezwykle rzadko.";
+                typeLabel.innerText = "STABILIZACJA";
+            } else if (val < 5) {
+                insightBox.className = "p-3 rounded-lg border-l-4 border-emerald-400 bg-emerald-50";
+                insightTitle.innerText = "Inflacja pełzająca (< 5%)";
+                insightText.innerText = "Najbezpieczniejszy rodzaj inflacji. Ceny rosną powoli, nie zakłócając procesów gospodarczych (Cel NBP).";
+                typeLabel.innerText = "PEŁZAJĄCA";
+            } else if (val <= 10) {
+                insightBox.className = "p-3 rounded-lg border-l-4 border-yellow-400 bg-yellow-50";
+                insightTitle.innerText = "Inflacja krocząca (5-10%)";
+                insightText.innerText = "Ceny zaczynają wymykać się spod kontroli. Ludzie zaczynają odczuwać drożyznę w portfelach.";
+                typeLabel.innerText = "KROCZĄCA";
+            } else if (val <= 20) {
+                insightBox.className = "p-3 rounded-lg border-l-4 border-orange-500 bg-orange-50";
+                insightTitle.innerText = "Inflacja galopująca (10-20%)";
+                insightText.innerText = "Bardzo wysoka prędkość. Planowanie przyszłości finansowej staje się niezwykle trudne.";
+                typeLabel.innerText = "GALOPUJĄCA";
+            } else {
+                insightBox.className = "p-3 rounded-lg border-l-4 border-red-600 bg-red-50";
+                insightTitle.innerText = "W stronę hiperinflacji (> 20%)";
+                insightText.innerText = "Ekstremalnie wysoki wzrost cen. Pieniądz traci wartość w oczach, a linia gwałtownie ucieka w górę.";
+                typeLabel.innerText = "EKSTREMALNA";
+            }
+        }
+
+        startBtn.addEventListener('click', () => {
+            isRunning = true;
+            startBtn.className = "btn-padding flex-1 bg-emerald-600 text-white text-sm font-bold py-3 rounded-lg shadow-lg ring-2 ring-emerald-100 flex items-center justify-center gap-2 transition-all";
+            stopBtn.className = "btn-padding flex-1 bg-gray-200 text-gray-600 text-sm font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-all";
+            updateStatusText();
+        });
+
+        stopBtn.addEventListener('click', () => {
+            isRunning = false;
+            startBtn.className = "btn-padding flex-1 bg-emerald-500 text-white text-sm font-bold py-3 rounded-lg shadow-md flex items-center justify-center gap-2 transition-all";
+            stopBtn.className = "btn-padding flex-1 bg-gray-300 text-gray-800 text-sm font-bold py-3 rounded-lg ring-2 ring-gray-100 flex items-center justify-center gap-2 transition-all";
+            updateStatusText();
+        });
+
+        slider.addEventListener('input', () => {
+            sliderValText.innerText = parseFloat(slider.value).toFixed(1) + '%';
+            updateStatusText();
+        });
+
+        // Pętla animacji
+        setInterval(updateSimulation, 100);
+        updateStatusText();
+    </script>
+</body>
+</html>
