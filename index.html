@@ -37,14 +37,15 @@
             <p class="text-gray-500">Prędkość (inflacja) vs Przebieg (ceny)</p>
         </header>
 
-        <!-- Statystyki (Punkt zaczepienia dla scrolla) -->
-        <div id="statsSection" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- Statystyki -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="card rounded-xl p-6 text-center shadow-sm">
                 <p class="text-xs text-gray-500 uppercase font-bold tracking-wider mb-2">Inflacja</p>
                 <div class="text-4xl font-mono font-bold mint-text" id="speedDisplay">2.5%</div>
                 <p class="text-xs text-gray-400 mt-2 font-medium" id="typeLabel">TEMPO WZROSTU CEN</p>
             </div>
-            <div class="card rounded-xl p-6 text-center shadow-sm">
+            <!-- NOWY PUNKT ZAKOTWICZENIA SCROLLA -->
+            <div id="targetPriceCard" class="card rounded-xl p-6 text-center shadow-sm">
                 <p class="text-xs text-gray-500 uppercase font-bold tracking-wider mb-2">Poziom Cen</p>
                 <div class="text-4xl font-mono font-bold navy-text" id="odometerDisplay">100.00</div>
                 <p class="text-xs text-gray-400 mt-2 font-medium uppercase">PRZEBIEG (PLN)</p>
@@ -104,7 +105,7 @@
         const insightBox = document.getElementById('insightBox');
         const startBtn = document.getElementById('startBtn');
         const stopBtn = document.getElementById('stopBtn');
-        const statsSection = document.getElementById('statsSection');
+        const targetPriceCard = document.getElementById('targetPriceCard');
         const ctx = document.getElementById('priceChart').getContext('2d');
 
         let isRunning = false;
@@ -202,8 +203,8 @@
             startBtn.className = "flex-1 bg-emerald-600 text-white font-bold py-4 rounded-xl shadow-lg ring-4 ring-emerald-100 flex items-center justify-center gap-2 transition-all";
             stopBtn.className = "flex-1 bg-gray-200 text-gray-600 font-bold py-4 rounded-xl flex items-center justify-center gap-2 transition-all";
             
-            // Scroll do sekcji statystyk (teraz działa na każdym urządzeniu)
-            statsSection.scrollIntoView({ behavior: 'smooth' });
+            // Scroll bezpośrednio do karty "Poziom Cen"
+            targetPriceCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
             
             updateStatusText();
         });
